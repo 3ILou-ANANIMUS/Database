@@ -1,24 +1,31 @@
 package org.ananimus.SQL;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class SQL implements AutoCloseable {
 
     public Connection connection;
 
-    public SQL(String folder){
-        create(folder);
+    /// params: {type= url/file}
+    ///("jdbc:mysql://localhost:3306/dada?useSSL=false", "root", "");
+    public SQL(Type type, String... folderOrUrl){
+        create(type, folderOrUrl);
     }
 
-    private void create(String folder){
+    private void create(Type type, String... folderOrUrl){
         try {
-            connection = DriverManager.getConnection("jdbc:sqlite:" + folder);
+            if (folderOrUrl.length > 1){
+                connection = DriverManager.getConnection("jdbc:sqlite:" + folderOrUrl[0]);
+            }
+            connection = DriverManager.getConnection(folderOrUrl[0], folderOrUrl[1], folderOrUrl[2]);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    //uuid PRIMARY KEY, name TEXT, code TEXT, gc TEXT
+    //uuid PRIMARY KEY, name TEXT NOTNULL, code TEXT NOTNULL, gc TEXT пераделать
     public void createTable(String tables){
         String sql = "CREATE TABLE IF NOT EXISTS players (" + tables + ");";
 
@@ -45,23 +52,28 @@ public final class SQL implements AutoCloseable {
 
 
     // SELECT name, balance FROM players WHERE uuid = ?
-    public String getData(String sql, String where, String get){
+    public List<Object> getData(String sql, String where, String... gets){
         try {
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
+            List<Object> list = new ArrayList<>();
 
-            preparedStatement.setString(1, where);
+            if (where != null) {
+                preparedStatement.setString(1, where);
+            }
 
             try(ResultSet rs = preparedStatement.executeQuery()) {
-                if (rs.next()){
-                    return rs.getString(get);
+                for (String obj : gets) {
+                    if (rs.next()){
+                        list.add(rs.getObject(obj));
+                    }
                 }
+                return list;
             } catch (SQLException e){
                 throw new RuntimeException("Ошибка получение данных из базы.");
             }
         } catch (SQLException e){
             throw new RuntimeException("Ошибка подключения.");
         }
-        return null;
     }
 
 
